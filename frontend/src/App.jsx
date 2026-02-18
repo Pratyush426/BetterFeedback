@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import FileUpload from './components/FileUpload'
 import Dashboard from './components/Dashboard'
+import HistoryPage from './components/HistoryPage'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 const API_URL = `${API_BASE}/api/analyze`
@@ -8,7 +9,9 @@ const API_URL = `${API_BASE}/api/analyze`
 /**
  * App — Root component.
  *
- * State machine:
+ * Views: 'analyze' | 'history'
+ *
+ * Analyze state machine:
  *   idle    → user hasn't uploaded a file yet
  *   ready   → file uploaded, waiting for "Analyze" click
  *   loading → API call in flight
@@ -16,8 +19,9 @@ const API_URL = `${API_BASE}/api/analyze`
  *   error   → API or network error
  */
 export default function App() {
+    const [view, setView] = useState('analyze') // 'analyze' | 'history'
     const [rawText, setRawText] = useState(null)
-    const [status, setStatus] = useState('idle')   // idle | ready | loading | success | error
+    const [status, setStatus] = useState('idle')
     const [items, setItems] = useState([])
     const [errorMsg, setErrorMsg] = useState(null)
 
@@ -43,7 +47,6 @@ export default function App() {
 
             const data = await res.json()
 
-            // The API always returns AnalyzeResponse — check the error field
             if (data.error) {
                 setErrorMsg(data.error)
                 setStatus('error')
@@ -53,10 +56,17 @@ export default function App() {
             setItems(data.items ?? [])
             setStatus('success')
         } catch (err) {
-            setErrorMsg('Could not reach the API. Is the Flask server running on port 5000?')
+            setErrorMsg('Could not reach the API. Is the Flask server running?')
             setStatus('error')
         }
     }, [rawText])
+
+    // Restore a past run from history into the dashboard
+    const handleRestore = useCallback((restoredItems) => {
+        setItems(restoredItems)
+        setStatus('success')
+        setRawText('(restored from history)')
+    }, [])
 
     const isLoading = status === 'loading'
     const canAnalyze = status === 'ready' || status === 'success'
@@ -66,43 +76,65 @@ export default function App() {
             {/* ── Header ── */}
             <header className="header">
                 <span className="header-logo">BetterFeedback</span>
-                <span className="header-tagline">AI-powered customer feedback categorization</span>
+                <div className="header-nav">
+                    <button
+                        className={`btn-nav ${view === 'analyze' ? 'active' : ''}`}
+                        onClick={() => setView('analyze')}
+                    >
+                        ✦ Analyze
+                    </button>
+                    <button
+                        className={`btn-nav ${view === 'history' ? 'active' : ''}`}
+                        onClick={() => setView('history')}
+                    >
+                        🕐 History
+                    </button>
+                </div>
             </header>
 
             <main className="main">
-                {/* ── Upload Section ── */}
-                <section className="upload-section">
-                    <h2>Upload Feedback</h2>
-                    <FileUpload onUpload={handleUpload} disabled={isLoading} />
-
-                    <button
-                        className="btn-analyze"
-                        onClick={handleAnalyze}
-                        disabled={!canAnalyze || isLoading}
-                    >
-                        {isLoading ? 'Analyzing…' : '✦ Analyze Feedback'}
-                    </button>
-                </section>
-
-                {/* ── Loading State ── */}
-                {isLoading && (
-                    <div className="loading-state">
-                        <div className="spinner" />
-                        <p className="loading-text">Sending to Gemini AI — this takes a few seconds…</p>
-                    </div>
+                {/* ── History View ── */}
+                {view === 'history' && (
+                    <HistoryPage
+                        onBack={() => setView('analyze')}
+                        onRestore={handleRestore}
+                    />
                 )}
 
-                {/* ── Error Banner ── */}
-                {status === 'error' && errorMsg && (
-                    <div className="error-banner">
-                        <span className="error-icon">⚠️</span>
-                        <p className="error-message">{errorMsg}</p>
-                    </div>
-                )}
+                {/* ── Analyze View ── */}
+                {view === 'analyze' && (
+                    <>
+                        <section className="upload-section">
+                            <h2>Upload Feedback</h2>
+                            <FileUpload onUpload={handleUpload} disabled={isLoading} />
 
-                {/* ── Dashboard ── */}
-                {status === 'success' && (
-                    <Dashboard items={items} />
+                            <button
+                                className="btn-analyze"
+                                onClick={handleAnalyze}
+                                disabled={!canAnalyze || isLoading}
+                            >
+                                {isLoading ? 'Analyzing…' : '✦ Analyze Feedback'}
+                            </button>
+                        </section>
+
+                        {isLoading && (
+                            <div className="loading-state">
+                                <div className="spinner" />
+                                <p className="loading-text">Sending to Gemini AI — this takes a few seconds…</p>
+                            </div>
+                        )}
+
+                        {status === 'error' && errorMsg && (
+                            <div className="error-banner">
+                                <span className="error-icon">⚠️</span>
+                                <p className="error-message">{errorMsg}</p>
+                            </div>
+                        )}
+
+                        {status === 'success' && (
+                            <Dashboard items={items} />
+                        )}
+                    </>
                 )}
             </main>
         </div>
