@@ -2,6 +2,10 @@
 
 > AI-powered customer feedback categorization — built with Flask, React, and Gemini.
 
+**Live Demo:** https://better-feedback-git-main-pratyushs-projects-65d8dae4.vercel.app/
+**API:** https://betterfeedback.onrender.com/api/health
+
+
 Upload a block of raw customer feedback and get it instantly categorized into **Bugs**, **Feature Requests**, and **Pain Points**, each with a sentiment score and a concise summary. Every analysis is persisted to a database with a full history view.
 
 ---
